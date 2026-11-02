@@ -1,140 +1,223 @@
-import java.util.InputMismatchException;
-import java.util.Scanner;
+import java.sql.SQLException;
+import javax.swing.JOptionPane;
 
 public class Main {
-
-    // Método auxiliar para ler números inteiros com segurança contra letras
-    private static int lerInteiroSeguro(Scanner scanner, String mensagem) {
-        int numero = 0;
-        boolean entradaValida = false;
-
-        while (!entradaValida) {
-            try {
-                System.out.print(mensagem);
-                numero = scanner.nextInt();
-                entradaValida = true; // Entrada válida, sai do laço
-            } catch (InputMismatchException e) {
-                System.out.println("❌ [ERRO] Digite apenas números inteiros! Tente novamente.");
-            } finally {
-                scanner.nextLine(); // Limpa o buffer do teclado
-            }
-        }
-        return numero;
-    }
+    private static final int TOTAL_HORARIOS = 10;
+    private static final AgendaDAO agendaDAO = new AgendaDAO();
 
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        int opcao = 0;
+        String[] opcoes = {
+            "Agendar Consulta", "Ver Agenda Diária", "Editar Agendamento",
+            "Cancelar Agendamento", "Sair"
+        };
 
-        do {
-            System.out.println("\n========== SISTEMA VETERINÁRIO ==========");
-            System.out.println("1 - Agendar Consulta");
-            System.out.println("2 - Consultar Agenda");
-            System.out.println("3 - Editar Agendamento");
-            System.out.println("4 - Cancelar Consulta");
-            System.out.println("5 - Sair");
-            
-            // Leitura protegida da opção do menu
-            opcao = lerInteiroSeguro(scanner, "Escolha uma opção: ");
+        while (true) {
+            int opcao = JOptionPane.showOptionDialog(
+                null,
+                "Selecione uma opção:",
+                "Sistema da Clínica Veterinária",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                opcoes,
+                opcoes[0]
+            );
 
-            switch (opcao) {
-                case 1:
-                    System.out.println("\n--- NOVO AGENDAMENTO ---");
-                    
-                    // Leitura protegida do número do horário (1 a 10)
-                    int slot = lerInteiroSeguro(scanner, "Informe o número do horário (1 a 10): ") - 1;
-
-                    System.out.print("Informe a hora da consulta (ex: 09:00): ");
-                    String hora = scanner.nextLine();
-
-                    System.out.println("Tipo de Paciente:");
-                    System.out.println("1 - Cachorro");
-                    System.out.println("2 - Gato");
-                    
-                    // Leitura protegida do tipo de paciente
-                    int tipo = lerInteiroSeguro(scanner, "Escolha o tipo (1 ou 2): ");
-
-                    System.out.print("Nome do animal: ");
-                    String nome = scanner.nextLine();
-
-                    // Leitura protegida da idade
-                    int idade = lerInteiroSeguro(scanner, "Idade do animal: ");
-
-                    System.out.print("Nome do tutor: ");
-                    String dono = scanner.nextLine();
-
-                    System.out.print("Telefone do tutor: ");
-                    String tel = scanner.nextLine();
-
-                    System.out.print("Sintomas/Queixa principal: ");
-                    String sintomas = scanner.nextLine();
-
-                    Animal paciente = null;
-
-                    if (tipo == 1) {
-                        System.out.print("Porte do cachorro (Pequeno/Médio/Grande): ");
-                        String porte = scanner.nextLine();
-                        paciente = new Cachorro(porte, nome, idade, dono, tel);
-                    } else if (tipo == 2) {
-                        System.out.print("Temperamento do gato (Dócil/Arredio): ");
-                        String temperamento = scanner.nextLine();
-                        paciente = new Gato(temperamento, nome, idade, dono, tel);
-                    } else {
-                        System.out.println("⚠️ Tipo de paciente inválido! Agendamento cancelado.");
-                        break;
-                    }
-
-                    Consulta novaConsulta = new Consulta(paciente, hora, sintomas);
-                    AgendaManager.agendar(slot, novaConsulta);
-                    break;
-
-                case 2:
-                    AgendaManager.listar();
-                    break;
-
-                case 3:
-                    System.out.println("\n--- EDITAR AGENDAMENTO ---");
-                    
-                    // Leitura protegida do horário a ser editado
-                    int slotEdit = lerInteiroSeguro(scanner, "Informe o número do horário que deseja editar (1 a 10): ") - 1;
-
-                    System.out.print("Novo nome do animal: ");
-                    String nNome = scanner.nextLine();
-
-                    // Leitura protegida da nova idade
-                    int nIdade = lerInteiroSeguro(scanner, "Nova idade: ");
-
-                    System.out.print("Novo nome do tutor: ");
-                    String nDono = scanner.nextLine();
-
-                    System.out.print("Novo telefone do tutor: ");
-                    String nTel = scanner.nextLine();
-
-                    System.out.print("Novos sintomas/queixa: ");
-                    String nSintomas = scanner.nextLine();
-
-                    AgendaManager.editar(slotEdit, nNome, nIdade, nDono, nTel, nSintomas);
-                    break;
-
-                case 4:
-                    System.out.println("\n--- CANCELAR CONSULTA ---");
-                    
-                    // Leitura protegida do horário a ser cancelado
-                    int slotExcluir = lerInteiroSeguro(scanner, "Informe o número do horário que deseja cancelar (1 a 10): ") - 1;
-
-                    AgendaManager.excluir(slotExcluir);
-                    break;
-
-                case 5:
-                    System.out.println("Encerrando o sistema da clínica. Até logo!");
-                    break;
-
-                default:
-                    System.out.println("⚠️ Opção inválida! Escolha um número entre 1 e 5.");
+            try {
+                if (opcao == 0) agendar();
+                else if (opcao == 1) mostrarAgenda();
+                else if (opcao == 2) editar();
+                else if (opcao == 3) cancelar();
+                else break;
+            } catch (ClassNotFoundException erro) {
+                JOptionPane.showMessageDialog(
+                    null,
+                    "Driver JDBC do MySQL não encontrado. Adicione o MySQL Connector/J ao projeto.",
+                    "Driver não encontrado",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                break;
+            } catch (SQLException erro) {
+                JOptionPane.showMessageDialog(
+                    null,
+                    "Não foi possível acessar o banco de dados. Confira se o MySQL está iniciado e "
+                    + "se usuário e senha estão corretos.\n\nDetalhe: " + erro.getMessage(),
+                    "Erro no banco de dados",
+                    JOptionPane.ERROR_MESSAGE
+                );
             }
+        }
+    }
 
-        } while (opcao != 5);
+    private static void agendar() throws SQLException, ClassNotFoundException {
+        Consulta[] agenda = agendaDAO.buscarAgenda();
+        boolean lotada = true;
+        for (Consulta consulta : agenda) {
+            if (consulta == null) {
+                lotada = false;
+                break;
+            }
+        }
+        if (lotada) {
+            JOptionPane.showMessageDialog(null, "A agenda do dia está lotada.", "Agenda lotada",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-        scanner.close();
+        Integer indice = lerHorario("Digite o número do horário (1 a 10):");
+        if (indice == null) return;
+        if (agenda[indice] != null) {
+            JOptionPane.showMessageDialog(null, "Esse horário já está ocupado.", "Horário ocupado",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String horario = lerTexto("Informe a hora da consulta (ex.: 09:00):");
+        if (horario == null) return;
+
+        int tipo = JOptionPane.showOptionDialog(
+            null, "Selecione a espécie do paciente:", "Tipo de paciente",
+            JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null,
+            new String[] {"Cachorro", "Gato", "Cancelar"}, "Cachorro"
+        );
+        if (tipo < 0 || tipo > 1) return;
+
+        String nome = lerTexto("Nome do animal:");
+        if (nome == null) return;
+        Integer idade = lerInteiro("Idade do animal:", 0, 100);
+        if (idade == null) return;
+        String dono = lerTexto("Nome do tutor:");
+        if (dono == null) return;
+        String telefone = lerTexto("Telefone do tutor:");
+        if (telefone == null) return;
+        String caracteristica;
+        Animal paciente;
+
+        if (tipo == 0) {
+            caracteristica = lerTexto("Porte do cachorro (Pequeno, Médio ou Grande):");
+            if (caracteristica == null) return;
+            paciente = new Cachorro(caracteristica, nome, idade, dono, telefone);
+        } else {
+            caracteristica = lerTexto("Temperamento do gato (Dócil ou Arredio):");
+            if (caracteristica == null) return;
+            paciente = new Gato(caracteristica, nome, idade, dono, telefone);
+        }
+
+        String sintomas = lerTexto("Sintomas ou queixa principal:");
+        if (sintomas == null) return;
+
+        Consulta consulta = new Consulta(paciente, horario, sintomas);
+        if (agendaDAO.salvar(indice, consulta)) {
+            JOptionPane.showMessageDialog(null, "Consulta agendada com sucesso.", "Agendamento",
+                JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(null, "Esse horário já está ocupado.", "Horário ocupado",
+                JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private static void mostrarAgenda() throws SQLException, ClassNotFoundException {
+        Consulta[] agenda = agendaDAO.buscarAgenda();
+        StringBuilder texto = new StringBuilder("AGENDA DIÁRIA\n\n");
+        for (int i = 0; i < TOTAL_HORARIOS; i++) {
+            Consulta consulta = agenda[i];
+            texto.append("Horário ").append(i + 1).append(": ");
+            if (consulta == null) {
+                texto.append("[Disponível]\n\n");
+            } else {
+                Animal paciente = consulta.getPaciente();
+                texto.append("[OCUPADO] - ").append(consulta.getHorario()).append('\n')
+                    .append("Paciente: ").append(paciente.getNome()).append(" (")
+                    .append(paciente instanceof Cachorro ? "Cachorro" : "Gato").append(")\n")
+                    .append("Idade: ").append(paciente.getIdade()).append(" anos\n")
+                    .append("Tutor: ").append(paciente.getNomeDono()).append(" | Telefone: ")
+                    .append(paciente.getTelefoneDono()).append('\n')
+                    .append("Som: ").append(paciente.emitirSom()).append('\n')
+                    .append("Sintomas: ").append(consulta.getSintomas()).append("\n\n");
+            }
+        }
+        JOptionPane.showMessageDialog(null, texto.toString(), "Agenda diária",
+            JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private static void editar() throws SQLException, ClassNotFoundException {
+        Consulta[] agenda = agendaDAO.buscarAgenda();
+        Integer indice = lerHorario("Digite o número do horário que deseja editar (1 a 10):");
+        if (indice == null) return;
+        Consulta atual = agenda[indice];
+        if (atual == null) {
+            JOptionPane.showMessageDialog(null, "Esse horário está vazio.", "Horário disponível",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        Animal paciente = atual.getPaciente();
+        String nome = lerTexto("Novo nome do animal:");
+        if (nome == null) return;
+        Integer idade = lerInteiro("Nova idade:", 0, 100);
+        if (idade == null) return;
+        String dono = lerTexto("Novo nome do tutor:");
+        if (dono == null) return;
+        String telefone = lerTexto("Novo telefone do tutor:");
+        if (telefone == null) return;
+        String sintomas = lerTexto("Novos sintomas ou queixa principal:");
+        if (sintomas == null) return;
+
+        paciente.setNome(nome);
+        paciente.setIdade(idade);
+        paciente.setNomeDono(dono);
+        paciente.setTelefoneDono(telefone);
+        atual.setSintomas(sintomas);
+        if (agendaDAO.editar(indice, atual)) {
+            JOptionPane.showMessageDialog(null, "Agendamento atualizado com sucesso.", "Agendamento",
+                JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private static void cancelar() throws SQLException, ClassNotFoundException {
+        Integer indice = lerHorario("Digite o número do horário que deseja cancelar (1 a 10):");
+        if (indice == null) return;
+        if (agendaDAO.cancelar(indice)) {
+            JOptionPane.showMessageDialog(null, "Consulta cancelada. O horário está disponível.", "Cancelamento",
+                JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(null, "Esse horário já está vazio.", "Horário disponível",
+                JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private static Integer lerHorario(String mensagem) {
+        Integer horario = lerInteiro(mensagem, 1, TOTAL_HORARIOS);
+        return horario == null ? null : horario - 1;
+    }
+
+    private static Integer lerInteiro(String mensagem, int minimo, int maximo) {
+        String texto = lerTexto(mensagem);
+        if (texto == null) return null;
+        try {
+            int numero = Integer.parseInt(texto);
+            if (numero < minimo || numero > maximo) {
+                JOptionPane.showMessageDialog(null, "Digite um número entre " + minimo + " e " + maximo + ".",
+                    "Valor inválido", JOptionPane.WARNING_MESSAGE);
+                return lerInteiro(mensagem, minimo, maximo);
+            }
+            return numero;
+        } catch (NumberFormatException erro) {
+            JOptionPane.showMessageDialog(null, "Digite um número inteiro válido.", "Valor inválido",
+                JOptionPane.WARNING_MESSAGE);
+            return lerInteiro(mensagem, minimo, maximo);
+        }
+    }
+
+    private static String lerTexto(String mensagem) {
+        String texto = JOptionPane.showInputDialog(null, mensagem);
+        if (texto == null) return null;
+        texto = texto.trim();
+        if (texto.isEmpty()) {
+            JOptionPane.showMessageDialog(null, "O campo não pode ficar vazio.", "Campo obrigatório",
+                JOptionPane.WARNING_MESSAGE);
+            return lerTexto(mensagem);
+        }
+        return texto;
     }
 }
